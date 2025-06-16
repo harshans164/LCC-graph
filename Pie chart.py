@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtWebEngineWidgets import QWebEngineView
 import pandas as pd
 
-FILE_PATH = r"C:\Users\LENOVO\Downloads\Book 4(Sheet1).csv"
+FILE_PATH = r"Book 4(Sheet1)1.csv"
 df = pd.read_csv(FILE_PATH)
 
 list_final = [

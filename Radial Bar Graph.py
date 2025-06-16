@@ -5,10 +5,10 @@ import pandas as pd
 import copy
 
 # using the d3js graphing library to plot the graph, it is downloaded locally and saved in the same directory as that of this graph script
-with open(r"D:\MLDL projects\MLDL projects\Ghibli Project\d3js.js", "r", encoding="utf-8") as f:
+with open(r"d3js.js", "r", encoding="utf-8") as f:
     d3_js = f.read()
 
-FILE_PATH = r"D:\MLDL projects\MLDL projects\Ghibli Project\Book 4(Sheet1).csv"
+FILE_PATH = r"Book 4(Sheet1).csv"
 df = pd.read_csv(FILE_PATH)
 
 # hexal color code for various concentric circles, used inside the HTML js script text(its inside the string html_content)

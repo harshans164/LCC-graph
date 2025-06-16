@@ -8,6 +8,10 @@ import copy
 FILE_PATH = r"Book 4(Sheet1).csv"
 df = pd.read_csv(FILE_PATH)
 
+with open(r"d3js.js", "r", encoding="utf-8") as f:
+    d3_js = f.read()
+
+
 # Extract names and costs
 name = []
 cost = []
@@ -45,8 +49,6 @@ for j in temp_cost:
 color_list = ['#638B48', '#6F6F6F', '#638B48', '#E09365', '#6F6F6F', '#638B48',
               '#6F6F6F', '#638B48', '#638B48', '#638B48', '#638B48', '#ffffff']
 
-with open("d3js.js", "r", encoding="utf-8") as f:
-    d3_js = f.read()
 
 # Embed values into HTML string using f-string
 html_content = f"""

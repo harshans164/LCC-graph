@@ -35,13 +35,19 @@ val_a, val_b, val_c = percentage_list
 cost_list = [round(float(items) / 100000.0, 2) for items in cost_list]
 cost_a, cost_b, cost_c = cost_list
 
+# using the d3js graphing library to plot the graph, it is downloaded locally and saved in the same directory as that of this graph script
+with open(r"d3js.js", "r", encoding="utf-8") as f:
+    d3_js = f.read()
+
+
+
 html_content = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Bubble Chart Layout</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>{d3_js}</script>
   <style>
     body {{
       font-family: sans-serif;

@@ -68,6 +68,8 @@ js_data.append({
     "steel": total_steel_cost
 })
 
+with open(r"d3js.js", "r", encoding="utf-8") as f:
+    d3_js = f.read()
 
 # Convert Python list of dictionaries to a JavaScript array string
 js_data_string = str(js_data).replace("'", '"') # Replace single quotes with double quotes for JSON compatibility
@@ -78,7 +80,7 @@ html_content = f"""
 <head>
   <meta charset="UTF-8">
   <title>Bridge Cost Comparison</title>
-  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <script>{d3_js}</script>
   <style>
     body {{
       font-family: Arial, sans-serif;
