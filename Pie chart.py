@@ -9,21 +9,21 @@ class D3PieChartViewer(QMainWindow):
         super().__init__()
         self.setWindowTitle("Cost Breakdown Pie Chart")
         self.setMinimumSize(QSize(800, 600))
-
+        
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-
+        
         self.layout = QVBoxLayout(self.central_widget)
-
+        
         self.web_view = QWebEngineView()
         self.layout.addWidget(self.web_view)
-
+        
         # Generate HTML content
         html_content = self.generate_html(data_js)
-
+        
         # Load the HTML content
         self.web_view.setHtml(html_content, QUrl.fromLocalFile(""))
-
+        
     def generate_html(self, data_js):
         html = f"""
         <!DOCTYPE html>
@@ -91,7 +91,6 @@ class D3PieChartViewer(QMainWindow):
                     pointer-events: none;
                     opacity: 0;
                     transition: opacity 0.2s ease;
-                    z-index: 1000; /* Ensure tooltip is on top */
                 }}
                 .tooltip.visible {{
                     opacity: 1;
@@ -104,18 +103,18 @@ class D3PieChartViewer(QMainWindow):
                 <div id="chart"></div>
                 <div id="legend" class="legend"></div>
             </div>
-
+            
             <script>
                 // Data from Python with specific colors
                 const originalData = {data_js};
                 let currentData = JSON.parse(JSON.stringify(originalData));
-
+                
                 // Chart dimensions
                 const width = 600;
                 const height = 400;
                 const radius = Math.min(width, height) / 2 - 40;
                 const enlargedRadius = radius * 1.1; // 10% larger for hover
-
+                
                 // Create SVG
                 const svg = d3.select("#chart")
                     .append("svg")
@@ -123,27 +122,27 @@ class D3PieChartViewer(QMainWindow):
                     .attr("height", height)
                     .append("g")
                     .attr("transform", `translate(${{width/2}},${{height/2}})`);
-
+                
                 // Create tooltip
                 const tooltip = d3.select("body")
                     .append("div")
                     .attr("class", "tooltip");
-
+                
                 // Create pie layout
                 const pie = d3.pie()
                     .value(d => d.cost)
                     .sort(null);
-
+                
                 // Create arc generator
                 const arc = d3.arc()
                     .innerRadius(0)
                     .outerRadius(radius);
-
+                
                 // Create arc generator for enlarged slices
                 const enlargedArc = d3.arc()
                     .innerRadius(0)
                     .outerRadius(enlargedRadius);
-
+                
                 // Arc tween for smooth transitions
                 function arcTween(d, i) {{
                     const interpolate = d3.interpolate(
@@ -153,7 +152,7 @@ class D3PieChartViewer(QMainWindow):
                     this._current = interpolate(1);
                     return t => arc(interpolate(t));
                 }}
-
+                
                 // Arc tween for exit animation
                 function arcTweenExit(d) {{
                     const interpolate = d3.interpolate(d, {{
@@ -162,7 +161,7 @@ class D3PieChartViewer(QMainWindow):
                     }});
                     return t => arc(interpolate(t));
                 }}
-
+                
                 // Reset hover state
                 function resetHoverState() {{
                     svg.selectAll(".arc")
@@ -178,25 +177,25 @@ class D3PieChartViewer(QMainWindow):
                         .attr("transform", d => `translate(${{arc.centroid(d)}})`);
                     tooltip.classed("visible", false);
                 }}
-
+                
                 // Function to update the pie chart
                 function updatePieChart() {{
                     // Filter out disabled items
                     const activeData = currentData.filter(d => !d.disabled);
-
+                    
                     // Calculate new percentages
                     const totalActiveCost = activeData.reduce((sum, d) => sum + d.cost, 0);
                     activeData.forEach(d => {{
                         d.percent = (d.cost / totalActiveCost) * 100;
                     }});
-
+                    
                     // Update pie with new data
                     const arcs = pie(activeData);
-
+                    
                     // Join new data with existing paths
                     const paths = svg.selectAll(".arc")
                         .data(arcs, d => d.data.label);
-
+                    
                     // Handle exiting slices
                     paths.exit()
                         .transition()
@@ -205,14 +204,14 @@ class D3PieChartViewer(QMainWindow):
                         .attrTween("d", arcTweenExit)
                         .style("opacity", 0)
                         .remove();
-
+                    
                     // Update existing slices
                     paths.transition()
                         .duration(600)
                         .ease(d3.easeCubicInOut)
                         .attrTween("d", arcTween)
                         .attr("fill", d => d.data.color);
-
+                    
                     // Add new slices
                     paths.enter()
                         .append("path")
@@ -234,17 +233,17 @@ class D3PieChartViewer(QMainWindow):
                                 .on("mousemove", handleMouseMove)
                                 .on("mouseout", handleMouseOut);
                         }});
-
+                    
                     // Update labels
                     const labels = svg.selectAll(".pie-label")
                         .data(arcs, d => d.data.label);
-
+                    
                     labels.exit()
                         .transition()
                         .duration(200)
                         .style("opacity", 0)
                         .remove();
-
+                    
                     labels.enter()
                         .append("text")
                         .attr("class", "pie-label")
@@ -260,12 +259,12 @@ class D3PieChartViewer(QMainWindow):
                         .attr("transform", d => `translate(${{arc.centroid(d)}})`)
                         .text(d => d.data.percent > 5 ? `${{d.data.percent.toFixed(1)}}%` : "")
                         .style("opacity", 1);
-
+                    
                     // Update legend percentages
                     d3.selectAll(".legend-text")
                         .text(d => `${{d.label}} (₹${{d.cost.toFixed(2)}}L, ${{d.percent.toFixed(1)}}%)`);
                 }}
-
+                
                 // Handle mouseover for slices
                 function handleMouseOver(event, d) {{
                     // Enlarge and highlight the hovered slice
@@ -275,14 +274,14 @@ class D3PieChartViewer(QMainWindow):
                         .attr("stroke-width", 2)
                         .attr("fill", d3.color(d.data.color).brighter(0.5))
                         .attr("d", enlargedArc);
-
+                    
                     // Update label position for enlarged slice
                     svg.selectAll(".pie-label")
                         .filter(label => label.data.label === d.data.label)
                         .transition()
                         .duration(200)
                         .attr("transform", `translate(${{enlargedArc.centroid(d)}})`);
-
+                    
                     // Grey out all other slices
                     svg.selectAll(".arc")
                         .filter(arc => arc.data.label !== d.data.label)
@@ -290,7 +289,7 @@ class D3PieChartViewer(QMainWindow):
                         .duration(200)
                         .style("opacity", 0.3)
                         .attr("fill", "#cccccc");
-
+                    
                     // Show tooltip
                     tooltip
                         .html(`
@@ -302,19 +301,19 @@ class D3PieChartViewer(QMainWindow):
                         .style("top", (event.pageY - 10) + "px")
                         .classed("visible", true);
                 }}
-
+                
                 // Handle mousemove for slices
                 function handleMouseMove(event, d) {{
                     tooltip
                         .style("left", (event.pageX + 10) + "px")
                         .style("top", (event.pageY - 10) + "px");
                 }}
-
+                
                 // Handle mouseout for slices
                 function handleMouseOut(event, d) {{
                     resetHoverState();
                 }}
-
+                
                 // Initialize the chart
                 function initializeChart() {{
                     // Calculate initial percentages
@@ -322,9 +321,9 @@ class D3PieChartViewer(QMainWindow):
                     currentData.forEach(d => {{
                         d.percent = (d.cost / totalCost) * 100;
                     }});
-
+                    
                     const arcs = pie(currentData);
-
+                    
                     // Create initial arcs
                     svg.selectAll(".arc")
                         .data(arcs)
@@ -353,7 +352,7 @@ class D3PieChartViewer(QMainWindow):
                                 .on("mousemove", handleMouseMove)
                                 .on("mouseout", handleMouseOut);
                         }});
-
+                    
                     // Create initial labels
                     svg.selectAll(".pie-label")
                         .data(arcs)
@@ -372,7 +371,7 @@ class D3PieChartViewer(QMainWindow):
                         .delay(400)
                         .ease(d3.easeCubicInOut)
                         .style("opacity", 1);
-
+                    
                     // Create legend
                     const legend = d3.select("#legend")
                         .selectAll(".legend-item")
@@ -380,29 +379,29 @@ class D3PieChartViewer(QMainWindow):
                         .enter()
                         .append("div")
                         .attr("class", "legend-item")
-                        .attr("id", d => `legend-item-${{d.label.replace(/\\s+/g, '-')}}`);
-
+                        .attr("id", d => `legend-item-${{d.label.replace(/\s+/g, '-')}}`);
+                    
                     legend.append("div")
                         .attr("class", "legend-color")
                         .style("background-color", d => d.color);
-
+                    
                     legend.append("span")
                         .text(d => `${{d.label}} (₹${{d.cost.toFixed(2)}}L, ${{d.percent.toFixed(1)}}%)`)
                         .style("margin-left", "5px")
                         .attr("class", "legend-text");
-
+                    
                     // Add interactivity
                     legend.on("click", function(event, d) {{
                         // Reset hover state before toggling
                         resetHoverState();
-
+                        
                         // Toggle the item
                         toggleItem(d);
-
+                        
                         // Prevent event propagation
                         event.stopPropagation();
                     }});
-
+                    
                     // Add hover effects for legend
                     legend.on("mouseover", function(event, d) {{
                         if (!d.disabled) {{
@@ -411,27 +410,32 @@ class D3PieChartViewer(QMainWindow):
                                 .filter(arc => arc.data.label === d.label)
                                 .attr("stroke-width", 2)
                                 .attr("fill", d3.color(d.color).brighter(0.5));
-
-                            // Get the corresponding arc data for positioning the tooltip
-                            const hoveredArcData = arcs.find(arc => arc.data.label === d.label);
-
-                            if (hoveredArcData) {{
-                                // Calculate centroid of the hovered slice
-                                const centroid = arc.centroid(hoveredArcData);
-
-                                // Get the SVG element's position on the screen
-                                const svgElement = svg.node();
-                                const svgRect = svgElement.getBoundingClientRect();
-
-                                // Position the tooltip near the centroid of the slice, accounting for SVG's absolute position
+                            
+                            // Get the centroid of the slice
+                            const arcData = svg.selectAll(".arc")
+                                .filter(arc => arc.data.label === d.label)
+                                .data()[0];
+                            
+                            if (arcData) {{
+                                // Calculate the centroid position
+                                const centroid = arc.centroid(arcData);
+                                
+                                // Get the SVG's position on the page
+                                const svgRect = svg.node().parentNode.getBoundingClientRect();
+                                
+                                // Calculate the absolute position of the centroid
+                                const centroidX = svgRect.left + width/2 + centroid[0];
+                                const centroidY = svgRect.top + height/2 + centroid[1];
+                                
+                                // Show tooltip at the centroid position
                                 tooltip
                                     .html(`
                                         <strong>${{d.label}}</strong><br>
                                         Cost: ₹${{d.cost.toFixed(2)}}L<br>
                                         Percent: ${{d.percent.toFixed(1)}}%
                                     `)
-                                    .style("left", (svgRect.left + window.scrollX + width / 2 + centroid[0] + 10) + "px")
-                                    .style("top", (svgRect.top + window.scrollY + height / 2 + centroid[1] - 30) + "px")
+                                    .style("left", (centroidX + 10) + "px")
+                                    .style("top", (centroidY - 30) + "px")
                                     .classed("visible", true);
                             }}
                         }}
@@ -443,35 +447,35 @@ class D3PieChartViewer(QMainWindow):
                                 .filter(arc => arc.data.label === d.label)
                                 .attr("stroke-width", 1)
                                 .attr("fill", arc => arc.data.color);
-
+                            
                             // Hide tooltip
                             tooltip.classed("visible", false);
                         }}
                     }});
-
+                    
                     // Add click handler to SVG to reset hover state
                     svg.on("click", function(event) {{
                         resetHoverState();
                     }});
                 }}
-
+                
                 // Function to toggle item state
                 function toggleItem(item) {{
                     const index = currentData.findIndex(d => d.label === item.label);
                     if (index !== -1) {{
                         currentData[index].disabled = !currentData[index].disabled;
-
-                        const legendItem = d3.select(`#legend-item-${{item.label.replace(/\\s+/g, '-')}}`);
+                        
+                        const legendItem = d3.select(`#legend-item-${{item.label.replace(/\s+/g, '-')}}`);
                         if (currentData[index].disabled) {{
                             legendItem.select(".legend-text").classed("strikethrough", true);
                         }} else {{
                             legendItem.select(".legend-text").classed("strikethrough", false);
                         }}
-
+                        
                         updatePieChart();
                     }}
                 }}
-
+                
                 // Start the chart
                 initializeChart();
             </script>
@@ -497,15 +501,15 @@ def main():
 
     # Define labels and their specific colors
     label_colors = {
-        "Road user cost": "#FF8C00",
-        "Time cost estimate": "#483D8B",
-        "Embodied carbon emissions": "#B22222",
-        "Initial construction cost": "#996633",
-        "Additional CO2 e costs due to rerouting": "#8B0000",
-        "Periodic Maintenance costs": "#F6FB05",
+        "Road user cost": "#FF8C00",              
+        "Time cost estimate": "#483D8B",          
+        "Embodied carbon emissions": "#B22222",    
+        "Initial construction cost": "#996633",    
+        "Additional CO2 e costs due to rerouting": "#8B0000",  
+        "Periodic Maintenance costs": "#F6FB05",  
         "Periodic maintenance carbon emissions": "#A52A2A",
-        "Annual routine inspection costs": "#4682B4",
-        "Repair and rehabilitation costs": "#008000",
+        "Annual routine inspection costs": "#4682B4",  
+        "Repair and rehabilitation costs": "#008000",  
         "Demolition and deconstruction costs": "#800080"
     }
 
@@ -529,12 +533,12 @@ def main():
     for key in label_colors.keys():
         try:
             cost_list.append(float(values_dict.get(key, "0.0")))
-        except ValueError: # Catch specific error for invalid float conversion
+        except:
             cost_list.append(0.0)
 
     total_cost = sum(cost_list)
     percentage_list = [(v / total_cost) * 100 if total_cost else 0 for v in cost_list]
-    cost_list_lakhs = [v / 100000 for v in cost_list] # Convert to lakhs
+    cost_list_lakhs = [v / 100000 for v in cost_list]
 
     # Create data with specific color mapping
     data_with_colors = [
