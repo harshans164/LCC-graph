@@ -485,6 +485,7 @@ class D3PieChartViewer(QMainWindow):
         return html
 
 def main():
+    print("generating graph")
     FILE_PATH = r"Book 4(Sheet1)1.csv"
 
     # --- Read CSV and Extract Data ---
