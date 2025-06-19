@@ -113,7 +113,7 @@ class D3PieChartViewer(QMainWindow):
                 const width = 600;
                 const height = 400;
                 const radius = Math.min(width, height) / 2 - 40;
-                const enlargedRadius = radius * 1.1; // 10% larger for hover
+                const enlargedRadius = radius * 1.1;
                 
                 // Create SVG
                 const svg = d3.select("#chart")
@@ -431,8 +431,8 @@ class D3PieChartViewer(QMainWindow):
                                 tooltip
                                     .html(`
                                         <strong>${{d.label}}</strong><br>
-                                        Cost: ₹${{d.cost.toFixed(2)}}L<br>
-                                        Percent: ${{d.percent.toFixed(1)}}%
+                                        Cost: ₹${{d.data.cost.toFixed(2)}}L<br>
+                                        Percent: ${{d.data.percent.toFixed(1)}}%
                                     `)
                                     .style("left", (centroidX + 10) + "px")
                                     .style("top", (centroidY - 30) + "px")
