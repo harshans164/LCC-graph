@@ -1,233 +1,560 @@
-import sys
-from PySide6.QtWidgets import QApplication, QMainWindow
-from PySide6.QtWebEngineWidgets import QWebEngineView
 import pandas as pd
+import json
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtCore import QUrl, QSize
 
-FILE_PATH = r"Book 4(Sheet1)1.csv"
-df = pd.read_csv(FILE_PATH)
-
-list_final = [
-    "Road user cost",
-    "Time cost estimate",
-    "Embodied carbon emissions",
-    "Initial construction cost",
-    "Additional CO2 e costs due to rerouting",
-    "Periodic Maintenance costs",
-    "Periodic maintenance carbon emissions",
-    "Annual routine inspection costs",
-    "Repair and rehabilitation costs",
-    "Demolition and deconstruction costs"
-]
-
-# Extract values from DataFrame
-values_dict = {}
-for item in list_final:
-    count = 0
-    for _, row in df.iterrows():
-        if item in list(row):
-            if count == 0:
-                temp_row = list(row)
-                values_dict[item] = temp_row[temp_row.index(item) + 1]
-                count += 1
-
-cost_list = [float(items) for items in values_dict.values()]
-cost_list = [items / 100000 for items in cost_list]
-percentage_list = [round((item / sum(cost_list)) * 100, 4) for item in cost_list]
-
-# Clean list_final labels
-for i in list_final:
-    if " - " in i:
-        temp = i[4:]
-        list_final[list_final.index(i)] = temp.strip()
-    elif "\n" in i:
-        list_final[list_final.index(i)] = i.replace("\n", "").strip()
-
-# Create modified percentages (add 1.5% to each, then normalize to 100%)
-modified_percentages = [p + 1.5 for p in percentage_list]
-total = sum(modified_percentages)
-normalized_percentages = [round(p * 100 / total, 4) for p in modified_percentages]
-
-# Combine for Highcharts
-data_entries = [
-    {"name": label, "y": modified_p, "original_y": original_p, "cost": float(cost)}
-    for label, modified_p, original_p, cost in zip(list_final, normalized_percentages, percentage_list, cost_list)
-]
-
-data_js = "[" + ",".join(
-    f'{{ name: "{entry["name"]}", y: {entry["y"]}, original_y: {entry["original_y"]}, cost: {entry["cost"]} }}'
-    for entry in data_entries
-) + "]"
-
-colors_js = [
-    "#ff9900", "#660066", "#cc0000", "#996633", "#660033",
-    "#999966", "#3366cc", "#669999", "#ffff99", "#990000"
-]
-colors_js = "[" + ",".join(f'"{color}"' for color in colors_js) + "]"
-
-html_content = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Pie Chart</title>
-    <style>
-        body {
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f9f9f9;
-        }
-        #container {
-            width: 960px;
-            height: 500px;
-        }
-    </style>
-</head>
-<body>
-    <div id="container"></div>
-    <script src="https://code.highcharts.com/highcharts.js"></script>
-    <script>
-        const data = """ + data_js + """;
-        const colors = """ + colors_js + """;
-
-        Highcharts.chart('container', {
-            chart: {
-                type: 'pie',
-                animation: {
-                    duration: 450
-                },
-                events: {
-                    load: function() {
-                        const chart = this;
-                        chart.series[0].data.forEach((point, i) => {
-                            point.originalColor = point.color;
-                        });
-                    }
-                }
-            },
-            title: { text: null },
-            colors: colors,
-            plotOptions: {
-                pie: {
-                    dataLabels: {
-                        enabled: true,
-                        distance: 50,
-                        connectorWidth: 1,
-                        connectorColor: '#000',
-                        formatter: function () {
-                            const isLeft = this.point.plotX < 0;
-                            const label = this.point.name + ": " + this.point.original_y.toFixed(5) + "% ;" + this.point.cost.toLocaleString(undefined, { minimumFractionDigits: 5 }) + " Lakhs";
-                            return isLeft ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + label : label;
-                        },
-                        style: {
-                            fontSize: '12px',
-                            fontWeight: 'normal',
-                            textOutline: 'none',
-                        },
-                        connectorPadding: 5,
-                        softConnector: true
-                    },
-                    showInLegend: true,
-                    animation: { duration: 1100 },
-                    borderWidth: 1,
-                    borderColor: '#fff',
-                    point: {
-                        events: {
-                            mouseOver: function () {
-                                const chart = this.series.chart;
-                                chart.series[0].data.forEach(point => {
-                                    if (point !== this) {
-                                        point.update({ color: '#e0e0e0' }, false);
-                                    } else {
-                                        point.update({ sliced: true, slicedOffset: 10 }, false);
-                                    }
-                                });
-                                chart.redraw();
-                            },
-                            mouseOut: function () {
-                                const chart = this.series.chart;
-                                chart.series[0].data.forEach(point => {
-                                    point.update({
-                                        color: point.originalColor,
-                                        sliced: false,
-                                        slicedOffset: 0
-                                    }, false);
-                                });
-                                chart.redraw();
-                            }
-                        }
-                    },
-                    states: {
-                        hover: {
-                            halo: { size: 0 },
-                            brightness: 0
-                        }
-                    }
-                }
-            },
-            legend: {
-                align: 'right',
-                verticalAlign: 'top',
-                layout: 'vertical',
-                itemStyle: { fontSize: '12px' },
-                itemMarginTop: 5,
-                itemMarginBottom: 5,
-                maxHeight: 400,
-                padding: 10,
-                backgroundColor: '#fff',
-                borderWidth: 1,
-                borderColor: '#ddd',
-                borderRadius: 4,
-                shadow: true
-            },
-            tooltip: {
-                pointFormat: '{point.name}: <b>{point.original_y:.5f}% ({point.cost:,.5f})</b>',
-                backgroundColor: '#f4f4f4',
-                borderColor: '#ddd',
-                borderRadius: 4,
-                borderWidth: 1,
-                style: { fontSize: '12px' }
-            },
-            series: [{
-                name: 'Life Cycle Cost',
-                data: data,
-                allowPointSelect: true
-            }],
-            responsive: {
-                rules: [{
-                    condition: { maxWidth: 960 },
-                    chartOptions: {
-                        legend: {
-                            align: 'center',
-                            verticalAlign: 'bottom',
-                            layout: 'horizontal'
-                        }
-                    }
-                }]
-            }
-        });
-    </script>
-</body>
-</html>
-"""
-
-# Show in Qt UI
-class MainWindow(QMainWindow):
-    def __init__(self):
+class D3PieChartViewer(QMainWindow):
+    def __init__(self, data_js):
         super().__init__()
-        self.setWindowTitle("Pie Chart")
-        self.setGeometry(100, 100, 1000, 700)
+        self.setWindowTitle("Cost Breakdown Pie Chart")
+        self.setMinimumSize(QSize(800, 600))
 
-        view = QWebEngineView()
-        view.setHtml(html_content)
-        self.setCentralWidget(view)
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+
+        self.layout = QVBoxLayout(self.central_widget)
+
+        self.web_view = QWebEngineView()
+        self.layout.addWidget(self.web_view)
+
+        # Generate HTML content
+        html_content = self.generate_html(data_js)
+
+        # Load the HTML content
+        self.web_view.setHtml(html_content, QUrl.fromLocalFile(""))
+
+    def generate_html(self, data_js):
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Cost Breakdown Pie Chart</title>
+            <script src="https://d3js.org/d3.v7.min.js"></script>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    margin: 20px;
+                }}
+                .chart-container {{
+                    width: 100%;
+                    max-width: 800px;
+                    margin: 0 auto;
+                }}
+                .pie-label {{
+                    font-size: 12px;
+                    fill: #333;
+                }}
+                .legend-item {{
+                    font-size: 12px;
+                    display: flex;
+                    align-items: center;
+                    margin: 5px 10px;
+                    cursor: pointer;
+                }}
+                .title {{
+                    text-align: center;
+                    margin-bottom: 20px;
+                }}
+                .legend {{
+                    display: flex;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                    margin-top: 20px;
+                }}
+                .legend-color {{
+                    width: 15px;
+                    height: 15px;
+                    margin-right: 8px;
+                    display: inline-block;
+                }}
+                .strikethrough {{
+                    position: relative;
+                    color: #999;
+                }}
+                .strikethrough::after {{
+                    content: "";
+                    position: absolute;
+                    left: 0;
+                    top: 50%;
+                    width: 100%;
+                    height: 1px;
+                    background: black;
+                }}
+                .tooltip {{
+                    position: absolute;
+                    background: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    padding: 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    pointer-events: none;
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                    z-index: 1000; /* Ensure tooltip is on top */
+                }}
+                .tooltip.visible {{
+                    opacity: 1;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="chart-container">
+                <h2 class="title">Cost Breakdown (in Lakhs)</h2>
+                <div id="chart"></div>
+                <div id="legend" class="legend"></div>
+            </div>
+
+            <script>
+                // Data from Python with specific colors
+                const originalData = {data_js};
+                let currentData = JSON.parse(JSON.stringify(originalData));
+
+                // Chart dimensions
+                const width = 600;
+                const height = 400;
+                const radius = Math.min(width, height) / 2 - 40;
+                const enlargedRadius = radius * 1.1; // 10% larger for hover
+
+                // Create SVG
+                const svg = d3.select("#chart")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .append("g")
+                    .attr("transform", `translate(${{width/2}},${{height/2}})`);
+
+                // Create tooltip
+                const tooltip = d3.select("body")
+                    .append("div")
+                    .attr("class", "tooltip");
+
+                // Create pie layout
+                const pie = d3.pie()
+                    .value(d => d.cost)
+                    .sort(null);
+
+                // Create arc generator
+                const arc = d3.arc()
+                    .innerRadius(0)
+                    .outerRadius(radius);
+
+                // Create arc generator for enlarged slices
+                const enlargedArc = d3.arc()
+                    .innerRadius(0)
+                    .outerRadius(enlargedRadius);
+
+                // Arc tween for smooth transitions
+                function arcTween(d, i) {{
+                    const interpolate = d3.interpolate(
+                        this._current || {{ startAngle: d.startAngle, endAngle: d.startAngle }},
+                        d
+                    );
+                    this._current = interpolate(1);
+                    return t => arc(interpolate(t));
+                }}
+
+                // Arc tween for exit animation
+                function arcTweenExit(d) {{
+                    const interpolate = d3.interpolate(d, {{
+                        startAngle: d.endAngle,
+                        endAngle: d.endAngle
+                    }});
+                    return t => arc(interpolate(t));
+                }}
+
+                // Reset hover state
+                function resetHoverState() {{
+                    svg.selectAll(".arc")
+                        .transition()
+                        .duration(200)
+                        .style("opacity", 1)
+                        .attr("fill", arc => arc.data.color)
+                        .attr("stroke-width", 1)
+                        .attr("d", arc);
+                    svg.selectAll(".pie-label")
+                        .transition()
+                        .duration(200)
+                        .attr("transform", d => `translate(${{arc.centroid(d)}})`);
+                    tooltip.classed("visible", false);
+                }}
+
+                // Function to update the pie chart
+                function updatePieChart() {{
+                    // Filter out disabled items
+                    const activeData = currentData.filter(d => !d.disabled);
+
+                    // Calculate new percentages
+                    const totalActiveCost = activeData.reduce((sum, d) => sum + d.cost, 0);
+                    activeData.forEach(d => {{
+                        d.percent = (d.cost / totalActiveCost) * 100;
+                    }});
+
+                    // Update pie with new data
+                    const arcs = pie(activeData);
+
+                    // Join new data with existing paths
+                    const paths = svg.selectAll(".arc")
+                        .data(arcs, d => d.data.label);
+
+                    // Handle exiting slices
+                    paths.exit()
+                        .transition()
+                        .duration(400)
+                        .ease(d3.easeCubicInOut)
+                        .attrTween("d", arcTweenExit)
+                        .style("opacity", 0)
+                        .remove();
+
+                    // Update existing slices
+                    paths.transition()
+                        .duration(600)
+                        .ease(d3.easeCubicInOut)
+                        .attrTween("d", arcTween)
+                        .attr("fill", d => d.data.color);
+
+                    // Add new slices
+                    paths.enter()
+                        .append("path")
+                        .attr("class", "arc")
+                        .attr("fill", d => d.data.color)
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 1)
+                        .style("opacity", 0)
+                        .each(function(d) {{ this._current = d; }})
+                        .transition()
+                        .duration(600)
+                        .ease(d3.easeCubicInOut)
+                        .attrTween("d", arcTween)
+                        .style("opacity", 1)
+                        .on("end", function() {{
+                            // Add hover events after animation
+                            d3.select(this)
+                                .on("mouseover", handleMouseOver)
+                                .on("mousemove", handleMouseMove)
+                                .on("mouseout", handleMouseOut);
+                        }});
+
+                    // Update labels
+                    const labels = svg.selectAll(".pie-label")
+                        .data(arcs, d => d.data.label);
+
+                    labels.exit()
+                        .transition()
+                        .duration(200)
+                        .style("opacity", 0)
+                        .remove();
+
+                    labels.enter()
+                        .append("text")
+                        .attr("class", "pie-label")
+                        .attr("dy", "0.35em")
+                        .attr("text-anchor", "middle")
+                        .style("font-weight", "bold")
+                        .style("fill", "#fff")
+                        .style("opacity", 0)
+                        .merge(labels)
+                        .transition()
+                        .duration(400)
+                        .ease(d3.easeCubicInOut)
+                        .attr("transform", d => `translate(${{arc.centroid(d)}})`)
+                        .text(d => d.data.percent > 5 ? `${{d.data.percent.toFixed(1)}}%` : "")
+                        .style("opacity", 1);
+
+                    // Update legend percentages
+                    d3.selectAll(".legend-text")
+                        .text(d => `${{d.label}} (₹${{d.cost.toFixed(2)}}L, ${{d.percent.toFixed(1)}}%)`);
+                }}
+
+                // Handle mouseover for slices
+                function handleMouseOver(event, d) {{
+                    // Enlarge and highlight the hovered slice
+                    d3.select(this)
+                        .transition()
+                        .duration(200)
+                        .attr("stroke-width", 2)
+                        .attr("fill", d3.color(d.data.color).brighter(0.5))
+                        .attr("d", enlargedArc);
+
+                    // Update label position for enlarged slice
+                    svg.selectAll(".pie-label")
+                        .filter(label => label.data.label === d.data.label)
+                        .transition()
+                        .duration(200)
+                        .attr("transform", `translate(${{enlargedArc.centroid(d)}})`);
+
+                    // Grey out all other slices
+                    svg.selectAll(".arc")
+                        .filter(arc => arc.data.label !== d.data.label)
+                        .transition()
+                        .duration(200)
+                        .style("opacity", 0.3)
+                        .attr("fill", "#cccccc");
+
+                    // Show tooltip
+                    tooltip
+                        .html(`
+                            <strong>${{d.data.label}}</strong><br>
+                            Cost: ₹${{d.data.cost.toFixed(2)}}L<br>
+                            Percent: ${{d.data.percent.toFixed(1)}}%
+                        `)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px")
+                        .classed("visible", true);
+                }}
+
+                // Handle mousemove for slices
+                function handleMouseMove(event, d) {{
+                    tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                }}
+
+                // Handle mouseout for slices
+                function handleMouseOut(event, d) {{
+                    resetHoverState();
+                }}
+
+                // Initialize the chart
+                function initializeChart() {{
+                    // Calculate initial percentages
+                    const totalCost = currentData.reduce((sum, d) => sum + d.cost, 0);
+                    currentData.forEach(d => {{
+                        d.percent = (d.cost / totalCost) * 100;
+                    }});
+
+                    const arcs = pie(currentData);
+
+                    // Create initial arcs
+                    svg.selectAll(".arc")
+                        .data(arcs)
+                        .enter()
+                        .append("path")
+                        .attr("class", "arc")
+                        .attr("fill", d => d.data.color)
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 1)
+                        .style("opacity", 0)
+                        .each(function(d) {{
+                            this._current = {{
+                                startAngle: d.startAngle,
+                                endAngle: d.startAngle
+                            }};
+                        }})
+                        .transition()
+                        .duration(800)
+                        .ease(d3.easeCubicInOut)
+                        .attrTween("d", arcTween)
+                        .style("opacity", 1)
+                        .on("end", function() {{
+                            // Add hover events after animation
+                            d3.select(this)
+                                .on("mouseover", handleMouseOver)
+                                .on("mousemove", handleMouseMove)
+                                .on("mouseout", handleMouseOut);
+                        }});
+
+                    // Create initial labels
+                    svg.selectAll(".pie-label")
+                        .data(arcs)
+                        .enter()
+                        .append("text")
+                        .attr("class", "pie-label")
+                        .attr("dy", "0.35em")
+                        .attr("text-anchor", "middle")
+                        .style("font-weight", "bold")
+                        .style("fill", "#fff")
+                        .style("opacity", 0)
+                        .attr("transform", d => `translate(${{arc.centroid(d)}})`)
+                        .text(d => d.data.percent > 5 ? `${{d.data.percent.toFixed(1)}}%` : "")
+                        .transition()
+                        .duration(400)
+                        .delay(400)
+                        .ease(d3.easeCubicInOut)
+                        .style("opacity", 1);
+
+                    // Create legend
+                    const legend = d3.select("#legend")
+                        .selectAll(".legend-item")
+                        .data(currentData)
+                        .enter()
+                        .append("div")
+                        .attr("class", "legend-item")
+                        .attr("id", d => `legend-item-${{d.label.replace(/\\s+/g, '-')}}`);
+
+                    legend.append("div")
+                        .attr("class", "legend-color")
+                        .style("background-color", d => d.color);
+
+                    legend.append("span")
+                        .text(d => `${{d.label}} (₹${{d.cost.toFixed(2)}}L, ${{d.percent.toFixed(1)}}%)`)
+                        .style("margin-left", "5px")
+                        .attr("class", "legend-text");
+
+                    // Add interactivity
+                    legend.on("click", function(event, d) {{
+                        // Reset hover state before toggling
+                        resetHoverState();
+
+                        // Toggle the item
+                        toggleItem(d);
+
+                        // Prevent event propagation
+                        event.stopPropagation();
+                    }});
+
+                    // Add hover effects for legend
+                    legend.on("mouseover", function(event, d) {{
+                        if (!d.disabled) {{
+                            // Highlight the corresponding slice
+                            svg.selectAll(".arc")
+                                .filter(arc => arc.data.label === d.label)
+                                .attr("stroke-width", 2)
+                                .attr("fill", d3.color(d.color).brighter(0.5));
+
+                            // Get the corresponding arc data for positioning the tooltip
+                            const hoveredArcData = arcs.find(arc => arc.data.label === d.label);
+
+                            if (hoveredArcData) {{
+                                // Calculate centroid of the hovered slice
+                                const centroid = arc.centroid(hoveredArcData);
+
+                                // Get the SVG element's position on the screen
+                                const svgElement = svg.node();
+                                const svgRect = svgElement.getBoundingClientRect();
+
+                                // Position the tooltip near the centroid of the slice, accounting for SVG's absolute position
+                                tooltip
+                                    .html(`
+                                        <strong>${{d.label}}</strong><br>
+                                        Cost: ₹${{d.cost.toFixed(2)}}L<br>
+                                        Percent: ${{d.percent.toFixed(1)}}%
+                                    `)
+                                    .style("left", (svgRect.left + window.scrollX + width / 2 + centroid[0] + 10) + "px")
+                                    .style("top", (svgRect.top + window.scrollY + height / 2 + centroid[1] - 30) + "px")
+                                    .classed("visible", true);
+                            }}
+                        }}
+                    }})
+                    .on("mouseout", function(event, d) {{
+                        if (!d.disabled) {{
+                            // Reset highlight on the slice
+                            svg.selectAll(".arc")
+                                .filter(arc => arc.data.label === d.label)
+                                .attr("stroke-width", 1)
+                                .attr("fill", arc => arc.data.color);
+
+                            // Hide tooltip
+                            tooltip.classed("visible", false);
+                        }}
+                    }});
+
+                    // Add click handler to SVG to reset hover state
+                    svg.on("click", function(event) {{
+                        resetHoverState();
+                    }});
+                }}
+
+                // Function to toggle item state
+                function toggleItem(item) {{
+                    const index = currentData.findIndex(d => d.label === item.label);
+                    if (index !== -1) {{
+                        currentData[index].disabled = !currentData[index].disabled;
+
+                        const legendItem = d3.select(`#legend-item-${{item.label.replace(/\\s+/g, '-')}}`);
+                        if (currentData[index].disabled) {{
+                            legendItem.select(".legend-text").classed("strikethrough", true);
+                        }} else {{
+                            legendItem.select(".legend-text").classed("strikethrough", false);
+                        }}
+
+                        updatePieChart();
+                    }}
+                }}
+
+                // Start the chart
+                initializeChart();
+            </script>
+        </body>
+        </html>
+        """
+        return html
+
+def main():
+    FILE_PATH = r"Book 4(Sheet1)1.csv"
+
+    # --- Read CSV and Extract Data ---
+    try:
+        df = pd.read_csv(FILE_PATH)
+        if df.empty:
+            print(f"Warning: CSV file '{FILE_PATH}' is empty.")
+    except FileNotFoundError:
+        print(f"Error: CSV file not found at '{FILE_PATH}'.")
+        df = pd.DataFrame()
+    except Exception as e:
+        print(f"Error reading CSV: {e}")
+        df = pd.DataFrame()
+
+    # Define labels and their specific colors
+    label_colors = {
+        "Road user cost": "#FF8C00",
+        "Time cost estimate": "#483D8B",
+        "Embodied carbon emissions": "#B22222",
+        "Initial construction cost": "#996633",
+        "Additional CO2 e costs due to rerouting": "#8B0000",
+        "Periodic Maintenance costs": "#F6FB05",
+        "Periodic maintenance carbon emissions": "#A52A2A",
+        "Annual routine inspection costs": "#4682B4",
+        "Repair and rehabilitation costs": "#008000",
+        "Demolition and deconstruction costs": "#800080"
+    }
+
+    # Extract data
+    values_dict = {}
+    for item in label_colors.keys():
+        found_value = False
+        if not df.empty:
+            for _, row in df.iterrows():
+                row_list = [str(x) for x in row.values]
+                if item in row_list:
+                    idx = row_list.index(item)
+                    if idx + 1 < len(row_list):
+                        values_dict[item] = row_list[idx + 1]
+                        found_value = True
+                        break
+        if not found_value:
+            values_dict[item] = "0.0"
+
+    cost_list = []
+    for key in label_colors.keys():
+        try:
+            cost_list.append(float(values_dict.get(key, "0.0")))
+        except ValueError: # Catch specific error for invalid float conversion
+            cost_list.append(0.0)
+
+    total_cost = sum(cost_list)
+    percentage_list = [(v / total_cost) * 100 if total_cost else 0 for v in cost_list]
+    cost_list_lakhs = [v / 100000 for v in cost_list] # Convert to lakhs
+
+    # Create data with specific color mapping
+    data_with_colors = [
+        {
+            "label": name,
+            "cost": cost,
+            "percent": percent,
+            "color": label_colors[name],
+            "disabled": False
+        }
+        for name, cost, percent in zip(label_colors.keys(), cost_list_lakhs, percentage_list)
+    ]
+
+    data_js = json.dumps(data_with_colors)
+
+    # Create and show the application window
+    app = QApplication([])
+    viewer = D3PieChartViewer(data_js)
+    viewer.show()
+    app.exec()
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+    main()

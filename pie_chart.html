@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pie Chart</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div id="chart"></div>
+<script>
+    const data = [{"label": "Road user cost", "cost": 123.9264, "percent": 47.82077041524374}, {"label": "Time cost estimate", "cost": 2.3185647560000002, "percent": 0.8946887256432174}, {"label": "Embodied carbon emissions", "cost": 8.52863518, "percent": 3.291033265697632}, {"label": "Initial construction cost", "cost": 61.8283935, "percent": 23.858366019725}, {"label": "Additional CO2 e costs due to rerouting", "cost": 29.036355380000003, "percent": 11.204560806433557}, {"label": "Periodic Maintenance costs", "cost": 1.2440259, "percent": 0.4800452280911652}, {"label": "Periodic maintenance carbon emissions", "cost": 16.98751806, "percent": 6.55515048506264}, {"label": "Annual routine inspection costs", "cost": 12.73235898, "percent": 4.91316794183521}, {"label": "Repair and rehabilitation costs", "cost": 1.773805728, "percent": 0.6844768869258874}, {"label": "Demolition and deconstruction costs", "cost": 0.77158678, "percent": 0.29774022534195443}];
+    const colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9900", "#C9CBCF", "#8AC926", "#FF5C5C", "#6A4C93"];
+
+    const width = 600;
+    const height = 600;
+    const radius = Math.min(width, height) / 2;
+
+    const svg = d3.select("#chart")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", "translate(" + (width / 2) + "," + (height / 2) + ")");
+
+
+    const pie = d3.pie().value(d => d.cost);
+    const arc = d3.arc().innerRadius(0).outerRadius(radius);
+
+    const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
+
+    svg.selectAll("path")
+        .data(pie(data))
+        .enter()
+        .append("path")
+        .attr("d", arc)
+        .attr("fill", (_, i) => colors[i])
+        .on("mouseover", function (event, d) {
+            tooltip.transition().duration(200).style("opacity", 1);
+            tooltip.html(`<strong>${d.data.label}</strong><br>Cost: ${d.data.cost.toFixed(2)} Lakh<br>(${d.data.percent.toFixed(2)}%)`)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 30) + "px");
+        })
+        .on("mousemove", function(event) {
+            tooltip.style("left", (event.pageX + 10) + "px")
+                   .style("top", (event.pageY - 30) + "px");
+        })
+        .on("mouseout", function () {
+            tooltip.transition().duration(300).style("opacity", 0);
+        });
+</script>
+</body>
+</html>
